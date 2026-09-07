@@ -182,9 +182,8 @@ func sumNetAmortizedMonthly(
 	months := make([]MonthlyCostPoint, 0, len(byMonth))
 	var total float64
 	for month, amt := range byMonth {
-		if amt == 0 {
-			continue
-		}
+		// Keep $0 months so the series matches the Cost Explorer window
+		// (idle months are real data, not missing metrics).
 		months = append(months, MonthlyCostPoint{Month: month, Amount: amt})
 		total += amt
 	}

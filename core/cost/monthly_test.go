@@ -180,6 +180,57 @@ func TestFetchAccountMonthlyKeepsMonthsWhenTopServicesFail(t *testing.T) {
 	}
 }
 
+func TestSumNetAmortizedMonthlyKeepsZeroMonths(t *testing.T) {
+	ce := &fakeCE{
+		pages: [][]types.ResultByTime{{
+			{
+				TimePeriod: &types.DateInterval{Start: aws.String("2026-01-01"), End: aws.String("2026-02-01")},
+				Total: map[string]types.MetricValue{
+					MetricNetAmortized: {Amount: aws.String("100.00"), Unit: aws.String("USD")},
+				},
+			},
+			{
+				TimePeriod: &types.DateInterval{Start: aws.String("2026-02-01"), End: aws.String("2026-03-01")},
+				Total: map[string]types.MetricValue{
+					MetricNetAmortized: {Amount: aws.String("0"), Unit: aws.String("USD")},
+				},
+			},
+			{
+				TimePeriod: &types.DateInterval{Start: aws.String("2026-03-01"), End: aws.String("2026-04-01")},
+				Total: map[string]types.MetricValue{
+					MetricNetAmortized: {Amount: aws.String("50.00"), Unit: aws.String("USD")},
+				},
+			},
+		}},
+	}
+	months, currency, total, err := sumNetAmortizedMonthly(context.Background(), ce, DateRange{
+		Start: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		End:   time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if currency != "USD" {
+		t.Errorf("currency = %q, want USD", currency)
+	}
+	if total != 150 {
+		t.Errorf("total = %v, want 150", total)
+	}
+	want := []MonthlyCostPoint{
+		{Month: "2026-01", Amount: 100},
+		{Month: "2026-02", Amount: 0},
+		{Month: "2026-03", Amount: 50},
+	}
+	if len(months) != len(want) {
+		t.Fatalf("months = %+v, want %+v", months, want)
+	}
+	for i := range want {
+		if months[i] != want[i] {
+			t.Errorf("months[%d] = %+v, want %+v", i, months[i], want[i])
+		}
+	}
+}
+
 func TestMonthlyCERange(t *testing.T) {
 	dr := DateRange{
 		Start: time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC),
