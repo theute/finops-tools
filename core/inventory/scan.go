@@ -165,7 +165,9 @@ func scanRegionalResources(
 	ec2Inst, volumes, eips, nats, vpcs, err := listRegionalEC2(ctx, newEC2Client(cfg), region)
 	if err != nil {
 		record("ec2", err)
-	} else {
+	}
+	// Keep partial EC2 results when only some Describes failed.
+	if len(ec2Inst) > 0 || len(volumes) > 0 || len(eips) > 0 || len(nats) > 0 || len(vpcs) > 0 {
 		mu.Lock()
 		inv.EC2Instances = append(inv.EC2Instances, ec2Inst...)
 		inv.UnattachedEBS = append(inv.UnattachedEBS, volumes...)
@@ -178,7 +180,9 @@ func scanRegionalResources(
 	rdsInst, rdsClusters, err := listRegionalRDS(ctx, newRDSClient(cfg), region)
 	if err != nil {
 		record("rds", err)
-	} else {
+	}
+	// Keep partial RDS results when only instances or only clusters failed.
+	if len(rdsInst) > 0 || len(rdsClusters) > 0 {
 		mu.Lock()
 		inv.RDSInstances = append(inv.RDSInstances, rdsInst...)
 		inv.RDSClusters = append(inv.RDSClusters, rdsClusters...)

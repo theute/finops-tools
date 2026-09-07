@@ -81,6 +81,8 @@ func listEnabledRegionsWithClient(ctx context.Context, client EC2API, requested 
 	return regions, nil
 }
 
+// listEC2Resources returns independently listed EC2 resource types.
+// A failure in one Describe still returns the others plus a combined error.
 func listEC2Resources(ctx context.Context, client EC2API, region string) (
 	instances []EC2Instance,
 	unattached []EBSVolume,
@@ -89,25 +91,36 @@ func listEC2Resources(ctx context.Context, client EC2API, region string) (
 	vpcs []VPC,
 	err error,
 ) {
+	var errs []string
+
 	instances, err = describeInstances(ctx, client, region)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		errs = append(errs, "instances: "+err.Error())
+		instances = nil
 	}
 	unattached, err = describeUnattachedVolumes(ctx, client, region)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		errs = append(errs, "volumes: "+err.Error())
+		unattached = nil
 	}
 	eips, err = describeUnassociatedEIPs(ctx, client, region)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		errs = append(errs, "addresses: "+err.Error())
+		eips = nil
 	}
 	nats, err = describeNATGateways(ctx, client, region)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		errs = append(errs, "nat-gateways: "+err.Error())
+		nats = nil
 	}
 	vpcs, err = describeVPCs(ctx, client, region)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		errs = append(errs, "vpcs: "+err.Error())
+		vpcs = nil
+	}
+
+	if len(errs) > 0 {
+		return instances, unattached, eips, nats, vpcs, fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return instances, unattached, eips, nats, vpcs, nil
 }

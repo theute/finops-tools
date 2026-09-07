@@ -2,6 +2,8 @@ package inventory
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
@@ -17,14 +19,26 @@ func newRDSClient(cfg aws.Config) RDSAPI {
 	return apilog.WrapRDS(rds.NewFromConfig(cfg))
 }
 
+// listRDSResources returns instances and clusters independently.
+// A failure in one Describe still returns the other plus a combined error.
 func listRDSResources(ctx context.Context, client RDSAPI, region string) ([]RDSInstance, []RDSCluster, error) {
+	var (
+		errs     []string
+		clusters []RDSCluster
+	)
+
 	instances, err := describeDBInstances(ctx, client, region)
 	if err != nil {
-		return nil, nil, err
+		errs = append(errs, "instances: "+err.Error())
+		instances = nil
 	}
-	clusters, err := describeDBClusters(ctx, client, region)
+	clusters, err = describeDBClusters(ctx, client, region)
 	if err != nil {
-		return nil, nil, err
+		errs = append(errs, "clusters: "+err.Error())
+		clusters = nil
+	}
+	if len(errs) > 0 {
+		return instances, clusters, fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return instances, clusters, nil
 }

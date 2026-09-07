@@ -169,3 +169,45 @@ func TestScanRegionalResourcesKeepsRDSWhenEC2Fails(t *testing.T) {
 		t.Fatalf("warnings = %+v", warnings)
 	}
 }
+
+func TestScanRegionalResourcesKeepsPartialEC2OnError(t *testing.T) {
+	origEC2 := listRegionalEC2
+	origRDS := listRegionalRDS
+	origLBs := listRegionalLBs
+	origLambda := listRegionalLambda
+	t.Cleanup(func() {
+		listRegionalEC2 = origEC2
+		listRegionalRDS = origRDS
+		listRegionalLBs = origLBs
+		listRegionalLambda = origLambda
+	})
+
+	listRegionalEC2 = func(context.Context, EC2API, string) ([]EC2Instance, []EBSVolume, []ElasticIP, []NATGateway, []VPC, error) {
+		return []EC2Instance{{InstanceID: "i-1", Region: "us-east-1"}},
+			[]EBSVolume{{VolumeID: "vol-1", Region: "us-east-1"}},
+			nil, nil, nil, fmt.Errorf("nat-gateways: access denied")
+	}
+	listRegionalRDS = func(context.Context, RDSAPI, string) ([]RDSInstance, []RDSCluster, error) {
+		return nil, nil, nil
+	}
+	listRegionalLBs = func(context.Context, ELBV2API, ELBAPI, string) ([]LoadBalancer, error) {
+		return nil, nil
+	}
+	listRegionalLambda = func(context.Context, LambdaAPI, string) ([]LambdaFunction, error) {
+		return nil, nil
+	}
+
+	inv := &AccountInventory{}
+	var mu sync.Mutex
+	var warnings []RegionWarning
+	scanRegionalResources(context.Background(), aws.Config{}, "us-east-1", "111111111111", inv, &mu, &warnings)
+	if len(inv.EC2Instances) != 1 || inv.EC2Instances[0].InstanceID != "i-1" {
+		t.Fatalf("ec2 = %+v", inv.EC2Instances)
+	}
+	if len(inv.UnattachedEBS) != 1 || inv.UnattachedEBS[0].VolumeID != "vol-1" {
+		t.Fatalf("volumes = %+v", inv.UnattachedEBS)
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0].Message, "nat-gateways") {
+		t.Fatalf("warnings = %+v", warnings)
+	}
+}
