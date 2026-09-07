@@ -192,16 +192,38 @@ func listS3Buckets(ctx context.Context, client S3API) ([]S3Bucket, error) {
 		return nil, err
 	}
 	out := make([]S3Bucket, 0, len(resp.Buckets))
+	var errs []string
 	for _, bucket := range resp.Buckets {
 		name := aws.ToString(bucket.Name)
-		region := "us-east-1"
-		loc, locErr := client.GetBucketLocation(ctx, &s3.GetBucketLocationInput{Bucket: aws.String(name)})
-		if locErr == nil {
-			if r := string(loc.LocationConstraint); r != "" {
-				region = r
-			}
+		region, locErr := resolveS3BucketRegion(ctx, client, name, aws.ToString(bucket.BucketRegion))
+		if locErr != nil {
+			errs = append(errs, name+": "+locErr.Error())
 		}
 		out = append(out, S3Bucket{Name: name, Region: region})
 	}
+	if len(errs) > 0 {
+		return out, fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
 	return out, nil
+}
+
+// resolveS3BucketRegion prefers the region from ListBuckets when present.
+// GetBucketLocation returns an empty constraint for us-east-1; a failed lookup
+// must not inherit that default.
+func resolveS3BucketRegion(ctx context.Context, client S3API, name, listedRegion string) (string, error) {
+	if listedRegion != "" {
+		return listedRegion, nil
+	}
+	loc, err := client.GetBucketLocation(ctx, &s3.GetBucketLocationInput{Bucket: aws.String(name)})
+	if err != nil {
+		return "", err
+	}
+	switch string(loc.LocationConstraint) {
+	case "":
+		return "us-east-1", nil
+	case "EU":
+		return "eu-west-1", nil
+	default:
+		return string(loc.LocationConstraint), nil
+	}
 }

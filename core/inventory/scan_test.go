@@ -211,3 +211,28 @@ func TestScanRegionalResourcesKeepsPartialEC2OnError(t *testing.T) {
 		t.Fatalf("warnings = %+v", warnings)
 	}
 }
+
+func TestScanGlobalResourcesKeepsBucketsWhenLocationFails(t *testing.T) {
+	origR53 := listGlobalRoute53
+	origS3 := listGlobalS3
+	t.Cleanup(func() {
+		listGlobalRoute53 = origR53
+		listGlobalS3 = origS3
+	})
+
+	listGlobalRoute53 = func(context.Context, Route53API) ([]HostedZone, error) {
+		return nil, nil
+	}
+	listGlobalS3 = func(context.Context, S3API) ([]S3Bucket, error) {
+		return []S3Bucket{{Name: "kept", Region: ""}}, fmt.Errorf("kept: access denied")
+	}
+
+	inv := &AccountInventory{}
+	scanGlobalResources(context.Background(), aws.Config{}, inv)
+	if len(inv.S3Buckets) != 1 || inv.S3Buckets[0].Name != "kept" || inv.S3Buckets[0].Region != "" {
+		t.Fatalf("s3 = %+v", inv.S3Buckets)
+	}
+	if len(inv.Warnings) != 1 || !strings.Contains(inv.Warnings[0], "s3:") {
+		t.Fatalf("warnings = %+v", inv.Warnings)
+	}
+}

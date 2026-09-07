@@ -136,6 +136,8 @@ var (
 	listRegionalRDS    = listRDSResources
 	listRegionalLBs    = listLoadBalancers
 	listRegionalLambda = listLambdaFunctions
+	listGlobalRoute53  = listHostedZones
+	listGlobalS3       = listS3Buckets
 )
 
 // scanRegionalResources lists EC2, RDS, ELB, and Lambda in one region.
@@ -211,14 +213,17 @@ func scanRegionalResources(
 }
 
 func scanGlobalResources(ctx context.Context, cfg aws.Config, inv *AccountInventory) {
-	if zones, err := listHostedZones(ctx, newRoute53Client(cfg)); err != nil {
+	if zones, err := listGlobalRoute53(ctx, newRoute53Client(cfg)); err != nil {
 		inv.Warnings = append(inv.Warnings, "route53: "+err.Error())
 	} else {
 		inv.HostedZones = zones
 	}
-	if buckets, err := listS3Buckets(ctx, newS3Client(cfg)); err != nil {
+	buckets, err := listGlobalS3(ctx, newS3Client(cfg))
+	if err != nil {
 		inv.Warnings = append(inv.Warnings, "s3: "+err.Error())
-	} else {
+	}
+	// Keep buckets whose names we listed even when some GetBucketLocation calls failed.
+	if len(buckets) > 0 {
 		inv.S3Buckets = buckets
 	}
 }
