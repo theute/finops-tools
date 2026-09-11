@@ -13,14 +13,14 @@ import (
 
 var gmailAPIScopes = []string{
 	gmail.GmailSendScope,
-	gmail.GmailReadonlyScope,
+	gmail.GmailMetadataScope,
 }
 
 // gcloud requires cloud-platform when passing --scopes to application-default login.
 var gcloudADCLoginScopes = []string{
 	"https://www.googleapis.com/auth/cloud-platform",
 	gmail.GmailSendScope,
-	gmail.GmailReadonlyScope,
+	gmail.GmailMetadataScope,
 }
 
 // ADCLoginHint returns the gcloud command to authorize Gmail send access.

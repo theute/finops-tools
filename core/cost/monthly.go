@@ -2,6 +2,7 @@ package cost
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -42,7 +43,7 @@ type AccountMonthlyCosts struct {
 // each target is billed as its own account review series.
 //
 // A Cost Explorer failure for one account is stored on that result's Error field
-// and does not abort the batch. Context cancellation still returns an error.
+// and does not abort the batch. Context cancellation or deadline still returns an error.
 func FetchMonthly(ctx context.Context, q CostQuery) ([]AccountMonthlyCosts, error) {
 	if len(q.Accounts) == 0 {
 		return nil, fmt.Errorf("at least one account is required")
@@ -73,6 +74,9 @@ func fetchMonthlyWith(ctx context.Context, q CostQuery, opts fetchAWSOptions) ([
 		reportFetchProgress(q.Progress, acct, i+1, len(targets), GroupByNone)
 		monthly, err := fetchAccountMonthlyWith(ctx, acct, q.Range, opts)
 		if err != nil {
+			if isContextAbort(err) {
+				return err
+			}
 			results[i] = AccountMonthlyCosts{
 				AccountID: acct.AccountID,
 				Error:     err.Error(),
@@ -110,12 +114,19 @@ func fetchAccountMonthlyWith(ctx context.Context, acct AccountTarget, dr DateRan
 	}
 	topServices, err := fetchTopServicesLastMonth(ctx, ce, dr, filter, defaultTopServices)
 	if err != nil {
+		if isContextAbort(err) {
+			return AccountMonthlyCosts{}, err
+		}
 		// Keep the month series; emails can still show totals without a service breakdown.
 		out.TopServicesError = err.Error()
 		return out, nil
 	}
 	out.TopServices = topServices
 	return out, nil
+}
+
+func isContextAbort(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // monthlyCERange aligns a date range to calendar month boundaries for CE monthly granularity.

@@ -14,8 +14,11 @@ func TestADCLoginArgsIncludesCloudPlatformScope(t *testing.T) {
 	if !strings.Contains(scopes, "https://www.googleapis.com/auth/cloud-platform") {
 		t.Fatalf("ADCLoginArgs() scopes missing cloud-platform: %s", scopes)
 	}
-	if !strings.Contains(scopes, "gmail.send") || !strings.Contains(scopes, "gmail.readonly") {
+	if !strings.Contains(scopes, "gmail.send") || !strings.Contains(scopes, "gmail.metadata") {
 		t.Fatalf("ADCLoginArgs() scopes missing gmail: %s", scopes)
+	}
+	if strings.Contains(scopes, "gmail.readonly") {
+		t.Fatalf("ADCLoginArgs() requested gmail.readonly: %s", scopes)
 	}
 	foundDisableQuota := false
 	for _, arg := range args {

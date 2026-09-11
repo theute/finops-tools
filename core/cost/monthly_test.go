@@ -2,6 +2,7 @@ package cost
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -138,6 +139,91 @@ func TestFetchMonthlyContinuesWhenOneAccountFails(t *testing.T) {
 	}
 	if got[1].AccountID != "222222222222" || got[1].Error == "" {
 		t.Fatalf("second = %+v", got[1])
+	}
+}
+
+type contextAbortMonthlyCE struct {
+	err error
+}
+
+func (c contextAbortMonthlyCE) GetCostAndUsage(
+	context.Context,
+	*costexplorer.GetCostAndUsageInput,
+	...func(*costexplorer.Options),
+) (*costexplorer.GetCostAndUsageOutput, error) {
+	return nil, c.err
+}
+
+func TestFetchMonthlyReturnsContextAbort(t *testing.T) {
+	t.Parallel()
+
+	for _, want := range []error{context.Canceled, context.DeadlineExceeded} {
+		want := want
+		t.Run(want.Error(), func(t *testing.T) {
+			t.Parallel()
+			got, err := fetchMonthlyWith(context.Background(), CostQuery{
+				Accounts: []AccountTarget{
+					{AccountID: "111111111111", AWSConfig: aws.Config{Region: CostExplorerRegion}},
+					{AccountID: "222222222222", AWSConfig: aws.Config{Region: CostExplorerRegion}},
+				},
+				Range:   LastNCalendarMonthsRange(1, time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)),
+				Workers: 1,
+			}, fetchAWSOptions{
+				NewCostExplorer: func(aws.Config) CostExplorerAPI {
+					return contextAbortMonthlyCE{err: want}
+				},
+			})
+			if !errors.Is(err, want) {
+				t.Fatalf("fetchMonthlyWith() error = %v, want %v", err, want)
+			}
+			if len(got) != 0 {
+				t.Fatalf("got %d accounts, want none on context abort", len(got))
+			}
+		})
+	}
+}
+
+type contextAbortTopServicesCE struct {
+	err error
+}
+
+func (c contextAbortTopServicesCE) GetCostAndUsage(
+	_ context.Context,
+	params *costexplorer.GetCostAndUsageInput,
+	_ ...func(*costexplorer.Options),
+) (*costexplorer.GetCostAndUsageOutput, error) {
+	if params != nil && len(params.GroupBy) > 0 {
+		return nil, c.err
+	}
+	return (&fakeMonthlyCE{}).GetCostAndUsage(context.Background(), params)
+}
+
+func TestFetchMonthlyReturnsContextAbortFromTopServices(t *testing.T) {
+	t.Parallel()
+
+	for _, want := range []error{context.Canceled, context.DeadlineExceeded} {
+		want := want
+		t.Run(want.Error(), func(t *testing.T) {
+			t.Parallel()
+			got, err := fetchMonthlyWith(context.Background(), CostQuery{
+				Accounts: []AccountTarget{
+					{AccountID: "111111111111", AWSConfig: aws.Config{Region: CostExplorerRegion}},
+				},
+				Range:   LastNCalendarMonthsRange(6, time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)),
+				Workers: 1,
+			}, fetchAWSOptions{
+				Now: time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC),
+				NewCostExplorer: func(aws.Config) CostExplorerAPI {
+					return contextAbortTopServicesCE{err: want}
+				},
+			})
+			if !errors.Is(err, want) {
+				t.Fatalf("fetchMonthlyWith() error = %v, want %v", err, want)
+			}
+			if len(got) != 0 {
+				t.Fatalf("got %d accounts, want none on context abort", len(got))
+			}
+		})
 	}
 }
 

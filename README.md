@@ -630,7 +630,7 @@ Gmail uses existing gcloud Application Default Credentials. finops does **not** 
 # --disable-quota-project: do not write your gcloud config project into ADC
 gcloud auth application-default login \
   --disable-quota-project \
-  --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/gmail.send,https://www.googleapis.com/auth/gmail.readonly
+  --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/gmail.send,https://www.googleapis.com/auth/gmail.metadata
 
 # Verify finops can send Gmail with your existing ADC
 finops config gmail login
