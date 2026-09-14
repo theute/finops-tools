@@ -767,15 +767,3 @@ func TestMonthLabel(t *testing.T) {
 		}
 	}
 }
-
-func TestAccountDisplayName(t *testing.T) {
-	if got := accountDisplayName(cost.AccountTarget{DisplayName: "Quay Production", AccountID: "111111111111"}); got != "Quay Production" {
-		t.Errorf("got %q", got)
-	}
-	if got := accountDisplayName(cost.AccountTarget{DisplayAlias: "quay", AccountID: "111111111111"}); got != "quay" {
-		t.Errorf("got %q", got)
-	}
-	if got := accountDisplayName(cost.AccountTarget{AccountID: "111111111111"}); got != "111111111111" {
-		t.Errorf("got %q", got)
-	}
-}

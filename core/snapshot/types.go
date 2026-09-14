@@ -90,6 +90,18 @@ type AccountTarget struct {
 	ConfigLoader func(context.Context) (aws.Config, error) `json:"-"`
 }
 
+// AccountDisplayName returns the preferred display name for the target,
+// falling back to DisplayAlias, and finally AccountID.
+func (t AccountTarget) AccountDisplayName() string {
+	if name := strings.TrimSpace(t.DisplayName); name != "" {
+		return name
+	}
+	if alias := strings.TrimSpace(t.DisplayAlias); alias != "" {
+		return alias
+	}
+	return strings.TrimSpace(t.AccountID)
+}
+
 // AccountProgress reports completion of per-account snapshot scans.
 type AccountProgress interface {
 	Advance()
