@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/openshift-online/finops-tools/core/cost"
 	"github.com/openshift-online/finops-tools/core/snowflake"
+	"github.com/openshift-online/finops-tools/core/sqlrows"
 )
 
 const defaultMartView = "HCMFINOPS_DB.MARTS.OCM_CLOUDABILITY_MAPPING"
@@ -25,13 +26,8 @@ type SnowflakeQueryer interface {
 	Close() error
 }
 
-// SnowflakeRows is the minimal row-iteration interface (mirrors database/sql.Rows).
-type SnowflakeRows interface {
-	Next() bool
-	Scan(dest ...any) error
-	Close() error
-	Err() error
-}
+// SnowflakeRows mirrors database/sql.Rows; kept as an alias for backward compatibility.
+type SnowflakeRows = sqlrows.Rows
 
 // HierarchyRow is one resolved worker cluster with its MC and SC account context.
 type HierarchyRow struct {
