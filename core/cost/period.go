@@ -110,7 +110,7 @@ func ResolvePeriod(spec PeriodSpec, now time.Time) (DateRange, error) {
 			if to.After(lastIncludable) {
 				return DateRange{}, fmt.Errorf(
 					"cost period cannot include future dates: end %s is after %s (Cost Explorer is historical only; use a lower --to or adjust exclude-recent-days)",
-					formatDate(to), formatDate(lastIncludable),
+					FormatDate(to), FormatDate(lastIncludable),
 				)
 			}
 		} else {
@@ -145,7 +145,7 @@ func ResolvePeriod(spec PeriodSpec, now time.Time) (DateRange, error) {
 	}
 
 	if !dr.Start.Before(dr.End) {
-		return DateRange{}, fmt.Errorf("cost period is empty (start %s must be before end %s)", formatDate(dr.Start), formatDate(dr.End))
+		return DateRange{}, fmt.Errorf("cost period is empty (start %s must be before end %s)", FormatDate(dr.Start), FormatDate(dr.End))
 	}
 	return dr, nil
 }
@@ -188,6 +188,7 @@ func dateOnly(t time.Time) time.Time {
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }
 
-func formatDate(t time.Time) string {
+// FormatDate formats a calendar date as YYYY-MM-DD.
+func FormatDate(t time.Time) string {
 	return t.Format("2006-01-02")
 }

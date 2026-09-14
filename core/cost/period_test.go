@@ -14,10 +14,10 @@ func TestLastNDaysRange(t *testing.T) {
 	wantStart := "2026-04-25"
 	wantEnd := "2026-05-25"
 
-	if got := formatDate(dr.Start); got != wantStart {
+	if got := FormatDate(dr.Start); got != wantStart {
 		t.Errorf("Start = %q, want %q", got, wantStart)
 	}
-	if got := formatDate(dr.End); got != wantEnd {
+	if got := FormatDate(dr.End); got != wantEnd {
 		t.Errorf("End (exclusive) = %q, want %q", got, wantEnd)
 	}
 }
@@ -25,21 +25,21 @@ func TestLastNDaysRange(t *testing.T) {
 func TestLastNDaysRangeDefaultsOnZero(t *testing.T) {
 	now := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
 	dr := LastNDaysRange(0, now)
-	if formatDate(dr.End) != "2026-01-31" {
-		t.Fatalf("unexpected end: %s", formatDate(dr.End))
+	if FormatDate(dr.End) != "2026-01-31" {
+		t.Fatalf("unexpected end: %s", FormatDate(dr.End))
 	}
-	if formatDate(dr.Start) != "2026-01-01" {
-		t.Fatalf("unexpected start: %s", formatDate(dr.Start))
+	if FormatDate(dr.Start) != "2026-01-01" {
+		t.Fatalf("unexpected start: %s", FormatDate(dr.Start))
 	}
 }
 
 func TestLastNCalendarMonthsRange(t *testing.T) {
 	now := time.Date(2026, 5, 26, 12, 0, 0, 0, time.UTC)
 	dr := LastNCalendarMonthsRange(3, now)
-	if got := formatDate(dr.Start); got != "2026-02-01" {
+	if got := FormatDate(dr.Start); got != "2026-02-01" {
 		t.Errorf("Start = %q, want 2026-02-01", got)
 	}
-	if got := formatDate(dr.End); got != "2026-05-26" {
+	if got := FormatDate(dr.End); got != "2026-05-26" {
 		t.Errorf("End = %q, want 2026-05-26", got)
 	}
 }
@@ -50,11 +50,11 @@ func TestResolvePeriodDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if formatDate(dr.Start) != "2026-04-26" {
-		t.Errorf("Start = %s", formatDate(dr.Start))
+	if FormatDate(dr.Start) != "2026-04-26" {
+		t.Errorf("Start = %s", FormatDate(dr.Start))
 	}
-	if formatDate(dr.End) != "2026-05-26" {
-		t.Errorf("End = %s", formatDate(dr.End))
+	if FormatDate(dr.End) != "2026-05-26" {
+		t.Errorf("End = %s", FormatDate(dr.End))
 	}
 }
 
@@ -64,11 +64,11 @@ func TestResolvePeriodDaysWithExcludeRecent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if formatDate(dr.End) != "2026-05-24" {
-		t.Errorf("End = %s, want 2026-05-24", formatDate(dr.End))
+	if FormatDate(dr.End) != "2026-05-24" {
+		t.Errorf("End = %s, want 2026-05-24", FormatDate(dr.End))
 	}
-	if formatDate(dr.Start) != "2026-04-24" {
-		t.Errorf("Start = %s, want 2026-04-24", formatDate(dr.Start))
+	if FormatDate(dr.Start) != "2026-04-24" {
+		t.Errorf("Start = %s, want 2026-04-24", FormatDate(dr.Start))
 	}
 }
 
@@ -78,8 +78,8 @@ func TestResolvePeriodExplicitRange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if formatDate(dr.Start) != "2026-01-01" || formatDate(dr.End) != "2026-04-01" {
-		t.Fatalf("range %s..%s", formatDate(dr.Start), formatDate(dr.End))
+	if FormatDate(dr.Start) != "2026-01-01" || FormatDate(dr.End) != "2026-04-01" {
+		t.Fatalf("range %s..%s", FormatDate(dr.Start), FormatDate(dr.End))
 	}
 }
 
@@ -89,8 +89,8 @@ func TestResolvePeriodFromOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if formatDate(dr.Start) != "2026-04-01" || formatDate(dr.End) != "2026-05-26" {
-		t.Fatalf("range %s..%s", formatDate(dr.Start), formatDate(dr.End))
+	if FormatDate(dr.Start) != "2026-04-01" || FormatDate(dr.End) != "2026-05-26" {
+		t.Fatalf("range %s..%s", FormatDate(dr.Start), FormatDate(dr.End))
 	}
 }
 
@@ -100,8 +100,8 @@ func TestResolvePeriodFromOnlyWithExcludeRecent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if formatDate(dr.End) != "2026-05-24" {
-		t.Errorf("End = %s", formatDate(dr.End))
+	if FormatDate(dr.End) != "2026-05-24" {
+		t.Errorf("End = %s", FormatDate(dr.End))
 	}
 }
 
