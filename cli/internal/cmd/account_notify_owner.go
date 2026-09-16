@@ -119,7 +119,7 @@ func init() {
 	accountNotifyOwnerCmd.Flags().IntVar(&notifyOwnerExcludeRecentDays, "exclude-recent-days", 0,
 		"Omit the last N UTC days from the cost end anchor (AWS CE lag; default 0, or defaults.cost.exclude_recent_days)")
 	accountNotifyOwnerCmd.Flags().StringVar(&notifyOwnerFormat, "format", string(output.FormatPrettyPrint), "Summary output format: pretty-print, json")
-	accountNotifyOwnerCmd.Flags().StringVar(&notifyOwnerRole, "role", "", "Linked-account IAM role name (default: config defaults.aws.linked_role)")
+	bindLinkedRoleFlag(accountNotifyOwnerCmd, &notifyOwnerRole)
 	accountNotifyOwnerCmd.Flags().BoolVar(&notifyOwnerQuiet, "quiet", false, "Suppress progress messages on stderr")
 	bindWorkersFlag(accountNotifyOwnerCmd, &notifyOwnerWorkers, "")
 }

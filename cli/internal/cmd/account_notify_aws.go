@@ -215,7 +215,7 @@ func linkedNotifyConfigLoader(
 ) (func(context.Context) (aws.Config, error), error) {
 	accountID := strings.TrimSpace(target.AccountID)
 	payerID := target.CredentialsAccountID()
-	roleARN, err := resolveNotifyLinkedRoleARN(cmd, cfg, target, flagRole)
+	roleARN, err := resolveTargetLinkedRoleARN(cmd, cfg, configPath, accountID, target.DisplayAlias, flagRole)
 	if err != nil {
 		return nil, err
 	}
@@ -249,15 +249,6 @@ func linkedNotifyConfigLoader(
 		return awsCfg, nil
 	}
 	return loader, nil
-}
-
-func resolveNotifyLinkedRoleARN(cmd *cobra.Command, cfg configstore.File, target cost.AccountTarget, flagRole string) (string, error) {
-	if alias := strings.TrimSpace(target.DisplayAlias); alias != "" {
-		if linked, ok := cfg.LinkedAccountForAlias(alias); ok {
-			return cfg.LinkedRoleARNForAccount(linked.AccountID, linked.RoleName())
-		}
-	}
-	return resolveLinkedRoleARN(cmd, awsFlags.ConfigPath, target.AccountID, flagRole)
 }
 
 func enrichNotifyTargetDisplayName(

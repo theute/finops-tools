@@ -40,7 +40,7 @@ type BuildInput struct {
 
 // Build gathers account metadata, costs, and inventory for all targets.
 // Per-account ListTags, Cost Explorer, and inventory failures are recorded on
-// the corresponding AccountReport. Context cancellation still aborts the run.
+// the corresponding AccountReport. Context cancellation or deadline still aborts the run.
 func Build(ctx context.Context, in BuildInput) (BuildResult, error) {
 	in = in.withDefaults()
 	if len(in.CostTargets) == 0 {
@@ -108,7 +108,7 @@ func Build(ctx context.Context, in BuildInput) (BuildResult, error) {
 		reportTagProgress(in.Progress, ct, i+1, len(in.CostTargets))
 		tags, tagErr := in.listTags(ctx, ct.AWSConfig, accountID)
 		if tagErr != nil {
-			if errors.Is(tagErr, context.Canceled) {
+			if isContextAbort(tagErr) {
 				return tagErr
 			}
 			// Keep building the rest of the reports; this account will have OwnerError set.
@@ -216,6 +216,10 @@ func inventoryScanError(inv inventory.AccountInventory) string {
 		}
 	}
 	return strings.Join(parts, "; ")
+}
+
+func isContextAbort(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 func reportTagProgress(progress cost.FetchProgress, target cost.AccountTarget, index, total int) {

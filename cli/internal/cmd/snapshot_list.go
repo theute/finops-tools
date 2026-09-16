@@ -122,7 +122,7 @@ func init() {
 	addOutputFlag(snapshotListCmd, &snapshotListOutput)
 	snapshotListCmd.Flags().StringVar(&snapshotListProvider, "provider", string(cost.ProviderAWS),
 		"Cloud provider: aws or gcp")
-	snapshotListCmd.Flags().StringVar(&snapshotListRole, "role", "", "Linked-account IAM role name (default: config defaults.aws.linked_role)")
+	bindLinkedRoleFlag(snapshotListCmd, &snapshotListRole)
 	snapshotListCmd.Flags().BoolVar(&snapshotListQuiet, "quiet", false, "Suppress progress messages on stderr")
 	bindWorkersFlag(snapshotListCmd, &snapshotListWorkers, "")
 }

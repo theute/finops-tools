@@ -3,6 +3,7 @@ package inventory
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -86,17 +87,48 @@ func TestListLoadBalancersKeepsClassicWhenV2Fails(t *testing.T) {
 
 type fakeS3 struct {
 	buckets       []s3types.Bucket
+	pageSize      int
 	listErr       error
 	locations     map[string]s3types.BucketLocationConstraint
 	locationErrs  map[string]error
 	locationCalls []string
+	listCalls     int
 }
 
-func (f *fakeS3) ListBuckets(context.Context, *s3.ListBucketsInput, ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+func (f *fakeS3) ListBuckets(_ context.Context, params *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
-	return &s3.ListBucketsOutput{Buckets: f.buckets}, nil
+	f.listCalls++
+	start := 0
+	if params != nil {
+		if token := aws.ToString(params.ContinuationToken); token != "" {
+			n, err := strconv.Atoi(token)
+			if err != nil {
+				return nil, err
+			}
+			start = n
+		}
+	}
+	if start > len(f.buckets) {
+		start = len(f.buckets)
+	}
+	pageSize := f.pageSize
+	if pageSize <= 0 {
+		pageSize = len(f.buckets) - start
+	}
+	end := start + pageSize
+	if end > len(f.buckets) {
+		end = len(f.buckets)
+	}
+	out := &s3.ListBucketsOutput{}
+	if start < end {
+		out.Buckets = f.buckets[start:end]
+	}
+	if end < len(f.buckets) {
+		out.ContinuationToken = aws.String(strconv.Itoa(end))
+	}
+	return out, nil
 }
 
 func (f *fakeS3) GetBucketLocation(_ context.Context, params *s3.GetBucketLocationInput, _ ...func(*s3.Options)) (*s3.GetBucketLocationOutput, error) {
@@ -179,5 +211,30 @@ func TestListS3BucketsSkipsGetBucketLocationWhenListed(t *testing.T) {
 	}
 	if len(fake.locationCalls) != 0 {
 		t.Fatalf("GetBucketLocation calls = %v, want none", fake.locationCalls)
+	}
+}
+
+func TestListS3BucketsPaginates(t *testing.T) {
+	t.Parallel()
+	fake := &fakeS3{
+		buckets: []s3types.Bucket{
+			{Name: aws.String("a"), BucketRegion: aws.String("us-east-1")},
+			{Name: aws.String("b"), BucketRegion: aws.String("us-west-2")},
+			{Name: aws.String("c"), BucketRegion: aws.String("eu-west-1")},
+		},
+		pageSize: 1,
+	}
+	got, err := listS3Buckets(context.Background(), fake)
+	if err != nil {
+		t.Fatalf("listS3Buckets() error = %v", err)
+	}
+	if fake.listCalls != 3 {
+		t.Fatalf("ListBuckets calls = %d, want 3", fake.listCalls)
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d buckets, want 3", len(got))
+	}
+	if got[0].Name != "a" || got[1].Name != "b" || got[2].Name != "c" {
+		t.Fatalf("got %+v", got)
 	}
 }

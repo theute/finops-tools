@@ -187,19 +187,34 @@ func listLambdaFunctions(ctx context.Context, client LambdaAPI, region string) (
 }
 
 func listS3Buckets(ctx context.Context, client S3API) ([]S3Bucket, error) {
-	resp, err := client.ListBuckets(ctx, &s3.ListBucketsInput{})
-	if err != nil {
-		return nil, err
-	}
-	out := make([]S3Bucket, 0, len(resp.Buckets))
-	var errs []string
-	for _, bucket := range resp.Buckets {
-		name := aws.ToString(bucket.Name)
-		region, locErr := resolveS3BucketRegion(ctx, client, name, aws.ToString(bucket.BucketRegion))
-		if locErr != nil {
-			errs = append(errs, name+": "+locErr.Error())
+	// Paginated ListBuckets is required for accounts whose general-purpose
+	// bucket quota is above the default 10,000; unpaginated requests are rejected.
+	const pageSize int32 = 10000
+	var (
+		out   []S3Bucket
+		errs  []string
+		token *string
+	)
+	for {
+		resp, err := client.ListBuckets(ctx, &s3.ListBucketsInput{
+			ContinuationToken: token,
+			MaxBuckets:        aws.Int32(pageSize),
+		})
+		if err != nil {
+			return nil, err
 		}
-		out = append(out, S3Bucket{Name: name, Region: region})
+		for _, bucket := range resp.Buckets {
+			name := aws.ToString(bucket.Name)
+			region, locErr := resolveS3BucketRegion(ctx, client, name, aws.ToString(bucket.BucketRegion))
+			if locErr != nil {
+				errs = append(errs, name+": "+locErr.Error())
+			}
+			out = append(out, S3Bucket{Name: name, Region: region})
+		}
+		if resp.ContinuationToken == nil || *resp.ContinuationToken == "" {
+			break
+		}
+		token = resp.ContinuationToken
 	}
 	if len(errs) > 0 {
 		return out, fmt.Errorf("%s", strings.Join(errs, "; "))

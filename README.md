@@ -654,6 +654,7 @@ finops account notify-owner --payer rh-control --ou ou-abcd-12345678 --group-by 
 | `--months` | Calendar months of cost history to include (default: `6`) |
 | `--exclude-recent-days` | Omit the last N UTC days from the cost end anchor (incomplete AWS CE data); default from `defaults.cost.exclude_recent_days` or `0` |
 | `--format` | Delivery summary format: `pretty-print` (default) or `json` |
+| `--role` | Linked-account IAM role name. Overrides the alias's stored role when set; otherwise the alias role, then `defaults.aws.linked_role` |
 
 Gmail API quota/billing defaults to the `hcmfinops` GCP project (via API client options, not by changing ADC). Override with `FINOPS_GMAIL_QUOTA_PROJECT`.
 
@@ -677,7 +678,7 @@ finops snapshot list --account-id 333333333333 --payer rhc --older-than-days 90 
 | `--regions` | Limit scan to comma-separated AWS regions (default: all enabled regions) |
 | `--min-size-gib` | Skip snapshots smaller than this size in GiB (default: `0`) |
 | `--account-id` / `--account-alias` / `--ou` / `--tag` / `--payer` | Same account selection as `finops account get-cost` |
-| `--role` | Linked-account IAM role name (default: `defaults.aws.linked_role` in config) |
+| `--role` | Linked-account IAM role name. Overrides the alias's stored role when set; otherwise the alias role, then `defaults.aws.linked_role` |
 | `--format` | `pretty-print` (default), `json`, or `csv` |
 | `--quiet` | Suppress progress messages on stderr |
 | `--workers` | Maximum concurrent workers for multi-account AWS queries (default: `25`, max: `1000`; use `1` for sequential) |

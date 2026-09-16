@@ -176,35 +176,41 @@ func TestBuildContinuesWhenListTagsFailsForOneAccount(t *testing.T) {
 	}
 }
 
-func TestBuildReturnsCanceledListTagsError(t *testing.T) {
+func TestBuildReturnsContextAbortFromListTags(t *testing.T) {
 	t.Parallel()
 
-	result, err := Build(context.Background(), BuildInput{
-		CostTargets: []cost.AccountTarget{
-			{AccountID: "111111111111", AWSConfig: aws.Config{Region: "us-east-1"}},
-			{AccountID: "222222222222", AWSConfig: aws.Config{Region: "us-east-1"}},
-		},
-		Workers: 1,
-		Now:     time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
-		listTags: func(_ context.Context, _ aws.Config, accountID string) ([]coreaccount.Tag, error) {
-			if accountID == "111111111111" {
-				return nil, context.Canceled
+	for _, want := range []error{context.Canceled, context.DeadlineExceeded} {
+		t.Run(want.Error(), func(t *testing.T) {
+			t.Parallel()
+			abort := want
+			result, err := Build(context.Background(), BuildInput{
+				CostTargets: []cost.AccountTarget{
+					{AccountID: "111111111111", AWSConfig: aws.Config{Region: "us-east-1"}},
+					{AccountID: "222222222222", AWSConfig: aws.Config{Region: "us-east-1"}},
+				},
+				Workers: 1,
+				Now:     time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+				listTags: func(_ context.Context, _ aws.Config, accountID string) ([]coreaccount.Tag, error) {
+					if accountID == "111111111111" {
+						return nil, abort
+					}
+					return []coreaccount.Tag{{Key: "owner", Value: "jdoe"}}, nil
+				},
+				fetchMonthly: func(_ context.Context, q cost.CostQuery) ([]cost.AccountMonthlyCosts, error) {
+					out := make([]cost.AccountMonthlyCosts, len(q.Accounts))
+					for i, acct := range q.Accounts {
+						out[i] = cost.AccountMonthlyCosts{AccountID: acct.AccountID}
+					}
+					return out, nil
+				},
+			})
+			if !errors.Is(err, abort) {
+				t.Fatalf("Build() error = %v, want %v", err, abort)
 			}
-			return []coreaccount.Tag{{Key: "owner", Value: "jdoe"}}, nil
-		},
-		fetchMonthly: func(_ context.Context, q cost.CostQuery) ([]cost.AccountMonthlyCosts, error) {
-			out := make([]cost.AccountMonthlyCosts, len(q.Accounts))
-			for i, acct := range q.Accounts {
-				out[i] = cost.AccountMonthlyCosts{AccountID: acct.AccountID}
+			if len(result.Reports) != 0 {
+				t.Fatalf("got partial BuildResult with %d reports, want none", len(result.Reports))
 			}
-			return out, nil
-		},
-	})
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("Build() error = %v, want context.Canceled", err)
-	}
-	if len(result.Reports) != 0 {
-		t.Fatalf("got partial BuildResult with %d reports, want none", len(result.Reports))
+		})
 	}
 }
 
