@@ -153,8 +153,8 @@ func sumNetAmortizedMonthly(
 	for {
 		out, err := ce.GetCostAndUsage(ctx, &costexplorer.GetCostAndUsageInput{
 			TimePeriod: &types.DateInterval{
-				Start: aws.String(formatDate(dr.Start)),
-				End:   aws.String(formatDate(dr.End)),
+				Start: aws.String(FormatDate(dr.Start)),
+				End:   aws.String(FormatDate(dr.End)),
 			},
 			Granularity:   types.GranularityMonthly,
 			Metrics:       []string{MetricNetAmortized},

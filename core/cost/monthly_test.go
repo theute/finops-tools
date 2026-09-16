@@ -375,12 +375,12 @@ func TestLastCompleteMonthRange(t *testing.T) {
 			got := lastCompleteMonthRange(DateRange{Start: start, End: end})
 			if tc.wantZero {
 				if !got.IsZero() {
-					t.Fatalf("got %s/%s, want zero", formatDate(got.Start), formatDate(got.End))
+					t.Fatalf("got %s/%s, want zero", FormatDate(got.Start), FormatDate(got.End))
 				}
 				return
 			}
-			if formatDate(got.Start) != tc.wantStart || formatDate(got.End) != tc.wantEnd {
-				t.Fatalf("got %s/%s, want %s/%s", formatDate(got.Start), formatDate(got.End), tc.wantStart, tc.wantEnd)
+			if FormatDate(got.Start) != tc.wantStart || FormatDate(got.End) != tc.wantEnd {
+				t.Fatalf("got %s/%s, want %s/%s", FormatDate(got.Start), FormatDate(got.End), tc.wantStart, tc.wantEnd)
 			}
 		})
 	}
