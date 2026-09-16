@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/organizations"
 	"github.com/aws/aws-sdk-go-v2/service/organizations/types"
+	"github.com/openshift-online/finops-tools/core/cost"
 )
 
 // ListTags returns AWS Organizations tags for accountID.
@@ -100,22 +101,15 @@ func ListAccountNames(ctx context.Context, cfg aws.Config) (map[string]string, e
 }
 
 func listAccountNamesWithClient(ctx context.Context, client OrganizationsAPI) (map[string]string, error) {
-	names := make(map[string]string)
-	var token *string
-	for {
-		out, err := client.ListAccounts(ctx, &organizations.ListAccountsInput{NextToken: token})
-		if err != nil {
-			return nil, err
+	accounts, err := listAllOrganizationAccounts(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]string, len(accounts))
+	for _, acct := range accounts {
+		if name, err := accountNameFromOrganizationAccount(&acct, aws.ToString(acct.Id)); err == nil {
+			names[aws.ToString(acct.Id)] = name
 		}
-		for _, acct := range out.Accounts {
-			if name, err := accountNameFromOrganizationAccount(&acct, aws.ToString(acct.Id)); err == nil {
-				names[aws.ToString(acct.Id)] = name
-			}
-		}
-		if out.NextToken == nil || aws.ToString(out.NextToken) == "" {
-			break
-		}
-		token = out.NextToken
 	}
 	return names, nil
 }
@@ -127,7 +121,7 @@ func ResolveAccountNames(ctx context.Context, cfg aws.Config, accountIDs []strin
 }
 
 func resolveAccountNamesWithClient(ctx context.Context, client OrganizationsAPI, accountIDs []string) (map[string]string, error) {
-	ids := uniqueAccountIDs(accountIDs)
+	ids := cost.UniqueAccountIDs(accountIDs)
 	if len(ids) == 0 {
 		return map[string]string{}, nil
 	}
@@ -256,32 +250,45 @@ func accountTagsMatchFilter(tags []Tag, tagKey, tagValue string) bool {
 }
 
 func listOrganizationAccountsWithClient(ctx context.Context, client OrganizationsAPI, statusFilter string) ([]OrganizationAccount, error) {
+	accounts, err := listAllOrganizationAccounts(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]OrganizationAccount, 0, len(accounts))
+	for _, acct := range accounts {
+		if statusFilter != "" && string(acct.Status) != statusFilter {
+			continue
+		}
+		name, err := accountNameFromOrganizationAccount(&acct, aws.ToString(acct.Id))
+		if err != nil {
+			continue
+		}
+		out = append(out, OrganizationAccount{
+			ID:   strings.TrimSpace(aws.ToString(acct.Id)),
+			Name: name,
+		})
+	}
+	return out, nil
+}
+
+// listAllOrganizationAccounts pages through every ListAccounts result, deduping
+// the ListAccounts NextToken loop shared by listAccountNamesWithClient and
+// listOrganizationAccountsWithClient.
+func listAllOrganizationAccounts(ctx context.Context, client OrganizationsAPI) ([]types.Account, error) {
+	var all []types.Account
 	var token *string
-	out := make([]OrganizationAccount, 0)
 	for {
-		resp, err := client.ListAccounts(ctx, &organizations.ListAccountsInput{NextToken: token})
+		out, err := client.ListAccounts(ctx, &organizations.ListAccountsInput{NextToken: token})
 		if err != nil {
 			return nil, err
 		}
-		for _, acct := range resp.Accounts {
-			if statusFilter != "" && string(acct.Status) != statusFilter {
-				continue
-			}
-			name, err := accountNameFromOrganizationAccount(&acct, aws.ToString(acct.Id))
-			if err != nil {
-				continue
-			}
-			out = append(out, OrganizationAccount{
-				ID:   strings.TrimSpace(aws.ToString(acct.Id)),
-				Name: name,
-			})
-		}
-		if resp.NextToken == nil || aws.ToString(resp.NextToken) == "" {
+		all = append(all, out.Accounts...)
+		if out.NextToken == nil || aws.ToString(out.NextToken) == "" {
 			break
 		}
-		token = resp.NextToken
+		token = out.NextToken
 	}
-	return out, nil
+	return all, nil
 }
 
 // ListOrganizationAccounts returns all organization accounts.
@@ -723,23 +730,6 @@ func accountNameFromOrganizationAccount(acct *types.Account, accountID string) (
 		return "", fmt.Errorf("account %s has no name", accountID)
 	}
 	return name, nil
-}
-
-func uniqueAccountIDs(ids []string) []string {
-	seen := make(map[string]struct{}, len(ids))
-	out := make([]string, 0, len(ids))
-	for _, id := range ids {
-		id = strings.TrimSpace(id)
-		if id == "" {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	return out
 }
 
 func organizationManagementAccountID(org *types.Organization) string {

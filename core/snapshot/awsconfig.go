@@ -1,14 +1,15 @@
 package snapshot
 
-import "github.com/aws/aws-sdk-go-v2/aws"
-
-const defaultAPIRegion = "us-east-1"
+import (
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/openshift-online/finops-tools/core/cost"
+)
 
 func awsConfigWithDefaultRegion(cfg aws.Config) aws.Config {
 	if cfg.Region != "" {
 		return cfg
 	}
 	out := cfg.Copy()
-	out.Region = defaultAPIRegion
+	out.Region = cost.CostExplorerRegion
 	return out
 }

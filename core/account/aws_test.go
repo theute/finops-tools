@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/organizations"
 	"github.com/aws/aws-sdk-go-v2/service/organizations/types"
+	"github.com/openshift-online/finops-tools/core/cost"
 )
 
 type fakeOrganizations struct {
@@ -546,7 +547,7 @@ func TestResolveAccountNamesDescribePerID(t *testing.T) {
 }
 
 func TestResolveAccountNamesUniqueIDs(t *testing.T) {
-	ids := uniqueAccountIDs([]string{" 111 ", "111", ""})
+	ids := cost.UniqueAccountIDs([]string{" 111 ", "111", ""})
 	if len(ids) != 1 || ids[0] != "111" {
 		t.Fatalf("ids = %v", ids)
 	}

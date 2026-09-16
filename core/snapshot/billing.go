@@ -11,13 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/costexplorer"
 	"github.com/aws/aws-sdk-go-v2/service/costexplorer/types"
 	"github.com/openshift-online/finops-tools/core/apilog"
+	"github.com/openshift-online/finops-tools/core/cost"
 	"github.com/openshift-online/finops-tools/core/parallel"
 )
 
-const (
-	costExplorerRegion       = "us-east-1"
-	snapshotBillingBatchSize = 100
-)
+const snapshotBillingBatchSize = 100
 
 // CostExplorerAPI is the subset of Cost Explorer used for billed snapshot costs.
 type CostExplorerAPI interface {
@@ -66,11 +64,11 @@ func FetchBilledSnapshotCosts(
 	}
 	start, end := LastCompleteMonthRange(now)
 	period := BilledSnapshotPeriod{
-		StartDate: formatBillingDate(start),
-		EndDate:   formatBillingDate(end.AddDate(0, 0, -1)),
+		StartDate: cost.FormatDate(start.UTC()),
+		EndDate:   cost.FormatDate(end.AddDate(0, 0, -1).UTC()),
 	}
 
-	accountIDs = uniqueTrimmedAccountIDs(accountIDs)
+	accountIDs = cost.UniqueAccountIDs(accountIDs)
 	if len(accountIDs) == 0 {
 		return nil, nil
 	}
@@ -110,23 +108,6 @@ func FetchBilledSnapshotCosts(
 	return out, nil
 }
 
-func uniqueTrimmedAccountIDs(ids []string) []string {
-	seen := make(map[string]struct{}, len(ids))
-	out := make([]string, 0, len(ids))
-	for _, id := range ids {
-		id = strings.TrimSpace(id)
-		if id == "" {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	return out
-}
-
 func batchAccountIDs(ids []string, size int) [][]string {
 	if size <= 0 || len(ids) == 0 {
 		return nil
@@ -161,8 +142,8 @@ func fetchBatchBilledSnapshotCosts(
 	for {
 		out, err := ce.GetCostAndUsage(ctx, &costexplorer.GetCostAndUsageInput{
 			TimePeriod: &types.DateInterval{
-				Start: aws.String(formatBillingDate(start)),
-				End:   aws.String(formatBillingDate(end)),
+				Start: aws.String(cost.FormatDate(start.UTC())),
+				End:   aws.String(cost.FormatDate(end.UTC())),
 			},
 			Granularity: types.GranularityMonthly,
 			Metrics:     []string{"UnblendedCost", "UsageQuantity"},
@@ -275,10 +256,6 @@ func parseCEMetrics(metrics map[string]types.MetricValue) (cost, usage float64, 
 	return cost, usage, nil
 }
 
-func formatBillingDate(t time.Time) string {
-	return t.UTC().Format("2006-01-02")
-}
-
 // NewCostExplorerClient returns a Cost Explorer client (API endpoint is us-east-1).
 func NewCostExplorerClient(cfg aws.Config) CostExplorerAPI {
 	return newCostExplorerClient(cfg)
@@ -286,10 +263,10 @@ func NewCostExplorerClient(cfg aws.Config) CostExplorerAPI {
 
 func newCostExplorerClient(cfg aws.Config) CostExplorerAPI {
 	if cfg.Region == "" {
-		cfg.Region = costExplorerRegion
+		cfg.Region = cost.CostExplorerRegion
 	}
 	inner := costexplorer.NewFromConfig(cfg, func(o *costexplorer.Options) {
-		o.Region = costExplorerRegion
+		o.Region = cost.CostExplorerRegion
 	})
 	return apilog.WrapGetCostAndUsage(inner)
 }

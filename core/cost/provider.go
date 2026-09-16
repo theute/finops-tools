@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/openshift-online/finops-tools/core/parallel"
+	"github.com/openshift-online/finops-tools/core/progress"
 )
 
 // Provider identifies a cloud cost data source.
@@ -90,9 +91,7 @@ type OUBucket struct {
 }
 
 // FetchProgress reports long-running steps while fetching costs.
-type FetchProgress interface {
-	Step(message string)
-}
+type FetchProgress = progress.Reporter
 
 // CostQuery describes a cost fetch request.
 type CostQuery struct {
@@ -231,8 +230,8 @@ func EmptyResult(provider Provider, dr DateRange, groupBy GroupBy) CostResult {
 		Provider:  provider,
 		Metric:    MetricNetAmortized,
 		GroupBy:   groupBy,
-		StartDate: formatDate(dr.Start),
-		EndDate:   formatDate(endInclusive),
+		StartDate: FormatDate(dr.Start),
+		EndDate:   FormatDate(endInclusive),
 	}
 }
 

@@ -340,28 +340,15 @@ func listRDSSnapshotsWithClient(
 	cutoff time.Time,
 	minSizeGiB float64,
 ) ([]Record, error) {
+	snaps, err := listAllDBSnapshots(ctx, client, region)
+	if err != nil {
+		return nil, err
+	}
 	var records []Record
-	var token *string
-	for {
-		out, err := client.DescribeDBSnapshots(ctx, &rds.DescribeDBSnapshotsInput{
-			Marker: token,
-		})
-		if err != nil {
-			if isRDSRegionUnsupported(err) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("describe rds snapshots in %s: %w", region, err)
+	for _, snap := range snaps {
+		if rec, ok := rdsSnapshotRecord(snap, accountID, region, cutoff, minSizeGiB); ok {
+			records = append(records, rec)
 		}
-		for _, snap := range out.DBSnapshots {
-			rec, ok := rdsSnapshotRecord(snap, accountID, region, cutoff, minSizeGiB)
-			if ok {
-				records = append(records, rec)
-			}
-		}
-		if out.Marker == nil || aws.ToString(out.Marker) == "" {
-			break
-		}
-		token = out.Marker
 	}
 	return records, nil
 }
@@ -373,28 +360,15 @@ func listRDSClusterSnapshotsWithClient(
 	cutoff time.Time,
 	minSizeGiB float64,
 ) ([]Record, error) {
+	snaps, err := listAllDBClusterSnapshots(ctx, client, region)
+	if err != nil {
+		return nil, err
+	}
 	var records []Record
-	var token *string
-	for {
-		out, err := client.DescribeDBClusterSnapshots(ctx, &rds.DescribeDBClusterSnapshotsInput{
-			Marker: token,
-		})
-		if err != nil {
-			if isRDSRegionUnsupported(err) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("describe rds cluster snapshots in %s: %w", region, err)
+	for _, snap := range snaps {
+		if rec, ok := rdsClusterSnapshotRecord(snap, accountID, region, cutoff, minSizeGiB); ok {
+			records = append(records, rec)
 		}
-		for _, snap := range out.DBClusterSnapshots {
-			rec, ok := rdsClusterSnapshotRecord(snap, accountID, region, cutoff, minSizeGiB)
-			if ok {
-				records = append(records, rec)
-			}
-		}
-		if out.Marker == nil || aws.ToString(out.Marker) == "" {
-			break
-		}
-		token = out.Marker
 	}
 	return records, nil
 }

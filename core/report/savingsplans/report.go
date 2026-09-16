@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -16,8 +15,6 @@ import (
 	"github.com/openshift-online/finops-tools/core/apilog"
 	"github.com/openshift-online/finops-tools/core/cost"
 )
-
-const costExplorerRegion = "us-east-1"
 
 // SavingsPlansAPI is the subset of the CE client used for savings plans fetch (mockable).
 type SavingsPlansAPI interface {
@@ -102,11 +99,11 @@ type ceClientFactory func(cfg aws.Config) SavingsPlansAPI
 func defaultCEClientFactory(cfg aws.Config) SavingsPlansAPI {
 	region := cfg.Region
 	if region == "" {
-		region = costExplorerRegion
+		region = cost.CostExplorerRegion
 	}
 	cfg.Region = region
 	inner := costexplorer.NewFromConfig(cfg, func(o *costexplorer.Options) {
-		o.Region = costExplorerRegion
+		o.Region = cost.CostExplorerRegion
 	})
 	return apilog.WrapSavingsPlans(inner)
 }
@@ -129,11 +126,11 @@ func buildWith(ctx context.Context, newClient ceClientFactory, accounts []cost.A
 
 		metrics, err := buildAccountWith(ctx, ce, dr, ceDR, acct)
 		if err != nil {
-			return Report{}, fmt.Errorf("%s: %w", accountDisplayName(acct), err)
+			return Report{}, fmt.Errorf("%s: %w", acct.AccountDisplayName(), err)
 		}
 		sections = append(sections, AccountReport{
 			AccountID:          acct.AccountID,
-			AccountName:        accountDisplayName(acct),
+			AccountName:        acct.AccountDisplayName(),
 			IsLinked:           acct.IsLinked(),
 			Coverage:           metrics.Coverage,
 			CoverageAverage:    metrics.CoverageAverage,
@@ -301,25 +298,7 @@ func isDataUnavailable(err error) bool {
 }
 
 func linkedAccountFilter(acct cost.AccountTarget) *types.Expression {
-	if !acct.ScopeToAccount() {
-		return nil
-	}
-	return &types.Expression{
-		Dimensions: &types.DimensionValues{
-			Key:    types.DimensionLinkedAccount,
-			Values: []string{acct.AccountID},
-		},
-	}
-}
-
-func accountDisplayName(acct cost.AccountTarget) string {
-	if name := strings.TrimSpace(acct.DisplayName); name != "" {
-		return name
-	}
-	if alias := strings.TrimSpace(acct.DisplayAlias); alias != "" {
-		return alias
-	}
-	return strings.TrimSpace(acct.AccountID)
+	return cost.LinkedAccountFilter(acct.AccountID, acct.ScopeToAccount())
 }
 
 // parseCoverageMetrics converts AWS SavingsPlansCoverages to sorted MonthlyMetric slice.
